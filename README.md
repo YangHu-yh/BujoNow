@@ -1,85 +1,70 @@
+---
+title: BujoNow
+emoji: ⚡
+colorFrom: green
+colorTo: green
+sdk: gradio
+sdk_version: 5.29.0
+app_file: app.py
+pinned: false
+license: mit
+short_description: A Bullet Journal Companion Powered by Gemini
+---
+
 # BujoNow - Bullet Journal Companion
 
-BujoNow is an AI-powered bullet journal companion app that helps you maintain a digital journal with advanced analysis features.
+BujoNow is a digital bullet journal application with AI-powered features for journal analysis, emotion tracking, and personal growth insights.
 
 ## Features
 
-- **Text Journaling**: Write your thoughts with AI-powered analysis of emotions, themes, and suggestions
-- **Voice Journaling**: Record audio journals that get transcribed automatically
-- **Photo Journaling**: Add images to your journal with automatic facial emotion detection
-- **Weekly Summaries**: Generate insights from your week's journaling activity
-- **Entry Organization**: Keep your journal entries organized by date
+- Text-based journaling with emotion analysis
+- Weekly summaries and insights
+- Graceful degradation when optional dependencies are unavailable
+- Multiple fallback mechanisms to ensure the app works in various environments
 
-## Project Structure
+## Running the Application
 
-```
-├── app.py                 # Main application with Gradio interface
-├── requirements.txt       # Python dependencies
-├── src/
-│   ├── journal_manager.py # Manages saving and retrieving journal entries
-│   ├── analyzer.py        # AI analysis using Google's Gemini API
-│   ├── image_processor.py # Image and emotion analysis
-│   └── audio_processor.py # Audio processing and transcription
-├── utils/
-│   └── helper_functions.py # Utility functions for various operations
-└── data/
-    └── sample_input.txt    # Sample journal entry
+To run the application with full features:
+
+```bash
+python app.py
 ```
 
-## Setup and Installation
-
-1. Clone this repository
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-3. Set up your Google API key for Gemini:
-   ```
-   export GOOGLE_API_KEY="your_api_key_here"
-   ```
-4. Run the application:
-   ```
-   python app.py
-   ```
-
-## API Key Setup
-
-This application uses Google's Gemini API for text analysis. You will need to:
-
-1. Create a Google Cloud account if you don't have one
-2. Enable the Gemini API
-3. Get an API key from the Google Cloud Console
-4. Set the API key as an environment variable or provide it directly in the application
+The app will automatically detect available dependencies and use appropriate fallbacks if some are missing.
 
 ## Dependencies
 
-- google-generativeai: For AI-powered text analysis
-- gradio: For the web interface
-- pydub & speechrecognition: For audio processing
-- facenet-pytorch & fer: For facial emotion detection
-- matplotlib & wordcloud: For data visualizations
+- Required:
+  - gradio
+  - python 3.7+
+  
+- Optional (for enhanced features):
+  - google-generativeai (for AI analysis)
+  - facenet-pytorch (for face detection)
+  - fer (for emotion recognition)
 
-## Usage
+## Project Structure
 
-After running the app, you'll see a web interface with tabs for different journaling modes:
+- `app.py`: Main entry point with fallback mechanisms
+- `src/`: Core application code
+  - `journal_manager.py`: Handles journal entry creation and storage
+  - `analyzer.py`: Provides AI-powered analysis (requires google-generativeai)
+  - `analyzer_simplified.py`: Simplified analysis without API dependencies
+  - `interface.py`: Creates the Gradio web interface
+  - `processor/`: Image and audio processing utilities
 
-1. **Text Journal**: Type your thoughts and receive analysis
-2. **Voice Journal**: Record or upload audio for transcription and analysis
-3. **Photo Journal**: Upload images for emotion detection and analysis
-4. **Review**: View past entries by date
-5. **Weekly Summary**: Generate summaries of your journaling activity
+## Fallback Mechanisms
 
-## Data Storage
+BujoNow implements several fallback mechanisms:
 
-Journal entries are stored locally in the `journals` directory, organized by year and month. Images and audio files are saved in the `uploads` directory, while visualizations are stored in the `visualizations` directory.
+1. If the full analyzer with Google AI isn't available, it uses a simplified analyzer
+2. If the web interface fails, it provides a command-line interface
+3. If components fail to import, it gracefully degrades functionality
 
-## Privacy
-
-All data is stored locally on your machine. No data is sent to external servers except for:
-- Text sent to Google's Gemini API for analysis
-- Audio sent to Google's Speech Recognition API for transcription
-- Images processed by Google's Gemini Vision API (if enabled)
+This ensures that users can still journal even if some dependencies are missing or API access is unavailable.
 
 ## License
 
-This project is open source and available under the MIT License. 
+MIT License
+
+Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference

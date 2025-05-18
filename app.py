@@ -6,364 +6,284 @@ emotion detection, and bullet journal-style organization.
 """
 
 import os
+import sys
 import json
+import traceback
 import datetime
 import gradio as gr
-import numpy as np
-from PIL import Image
-import matplotlib.pyplot as plt
 from pathlib import Path
-from typing import Dict, List, Any, Union, Optional
 
-# Import local modules
-from src.journal_manager import JournalManager
-from src.analyzer import Analyzer
-from src.image_processor import ImageProcessor
-from src.audio_processor import AudioProcessor
+# Configure environment before imports
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Suppress TensorFlow warnings
 
-# Constants
-JOURNALS_DIR = "journals"
-UPLOADS_DIR = "uploads"
-VISUALIZATIONS_DIR = "visualizations"
+print("Starting BujoNow application...")
 
-# Ensure directories exist
-for directory in [JOURNALS_DIR, UPLOADS_DIR, VISUALIZATIONS_DIR]:
+# Check for Google API key
+google_api_key = os.environ.get("GOOGLE_API_KEY")
+if google_api_key:
+    print("Found GOOGLE_API_KEY in environment variables")
+else:
+    print("Warning: GOOGLE_API_KEY not found in environment variables")
+    print("Full analyzer functionality will be limited without an API key")
+    print("Set it using: export GOOGLE_API_KEY=your_api_key")
+
+# Create required directories
+for directory in ["journals", "uploads", "visualizations"]:
     os.makedirs(directory, exist_ok=True)
+    print(f"Ensured {directory} directory exists")
 
-# Initialize components
-journal_manager = JournalManager(JOURNALS_DIR)
-analyzer = Analyzer()
-image_processor = ImageProcessor()
-audio_processor = AudioProcessor()
+# Try to import components, with graceful fallbacks
+try:
+    print("Importing interface module...")
+    from src.interface import create_interface
+    has_interface = True
+    print("Interface module imported successfully")
+except Exception as e:
+    print(f"Error importing interface: {e}")
+    traceback.print_exc(file=sys.stdout)
+    has_interface = False
 
-def save_text_journal(text: str, date: str = None) -> Dict[str, Any]:
-    """
-    Save a text journal entry
+# Create a simplified interface if the main one is not available
+def create_simple_interface():
+    """Create a simplified interface when the main one fails to load"""
+    print("Creating simplified interface due to import errors")
     
-    Args:
-        text: The journal text content
-        date: Optional date string (format: YYYY-MM-DD)
-        
-    Returns:
-        Result dictionary with status and entry ID
-    """
-    if not text:
-        return {"success": False, "error": "Journal text cannot be empty"}
-    
-    # Use provided date or current date
-    entry_date = datetime.datetime.now()
-    if date:
-        try:
-            entry_date = datetime.datetime.strptime(date, "%Y-%m-%d")
-        except ValueError:
-            return {"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}
-    
-    # Create entry content
-    entry_content = {
-        "text": text,
-        "type": "text",
-        "created_at": datetime.datetime.now().isoformat()
-    }
-    
-    # Save the entry
-    entry_id = journal_manager.add_entry(entry_date, entry_content)
-    
-    # Analyze the entry
+    # Try to import just the essential components for basic functionality
     try:
-        analysis = analyzer.analyze_journal_entry(text)
-        journal_manager.add_analysis(entry_id, analysis)
-    except Exception as e:
-        print(f"Error analyzing entry: {e}")
-    
-    return {
-        "success": True,
-        "entry_id": entry_id,
-        "date": entry_date.strftime("%Y-%m-%d")
-    }
-
-def save_audio_journal(audio_file: str, date: str = None) -> Dict[str, Any]:
-    """
-    Save an audio journal entry
-    
-    Args:
-        audio_file: Path to the uploaded audio file
-        date: Optional date string (format: YYYY-MM-DD)
-        
-    Returns:
-        Result dictionary with status and entry information
-    """
-    if not audio_file:
-        return {"success": False, "error": "No audio file provided"}
-    
-    # Process the audio file
-    result = audio_processor.process_journal_audio(audio_file)
-    
-    if not result.get("success", False):
-        return result
-    
-    # Use provided date or current date
-    entry_date = datetime.datetime.now()
-    if date:
+        # Try to import simplified analyzer if available
         try:
-            entry_date = datetime.datetime.strptime(date, "%Y-%m-%d")
-        except ValueError:
-            return {"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}
-    
-    # Create entry content
-    entry_content = {
-        "text": result["text"],
-        "type": "audio",
-        "audio_file": result["audio_file"],
-        "created_at": datetime.datetime.now().isoformat()
-    }
-    
-    # Save the entry
-    entry_id = journal_manager.add_entry(entry_date, entry_content)
-    
-    # Analyze the entry
-    try:
-        analysis = analyzer.analyze_audio(result["text"])
-        journal_manager.add_analysis(entry_id, analysis)
-    except Exception as e:
-        print(f"Error analyzing audio entry: {e}")
-    
-    return {
-        "success": True,
-        "entry_id": entry_id,
-        "date": entry_date.strftime("%Y-%m-%d"),
-        "transcription": result["text"]
-    }
-
-def save_image_journal(image_file: str, notes: str = "", date: str = None) -> Dict[str, Any]:
-    """
-    Save an image journal entry with emotion analysis
-    
-    Args:
-        image_file: Path to the uploaded image file
-        notes: Optional notes to accompany the image
-        date: Optional date string (format: YYYY-MM-DD)
-        
-    Returns:
-        Result dictionary with status and entry information
-    """
-    if not image_file:
-        return {"success": False, "error": "No image file provided"}
-    
-    # Use provided date or current date
-    entry_date = datetime.datetime.now()
-    if date:
+            from src.analyzer_simplified import Analyzer
+            print("Using simplified analyzer")
+            has_analyzer = True
+        except ImportError:
+            print("Simplified analyzer not available, using minimal functions")
+            has_analyzer = False
+            
+        # Try to import journal manager
         try:
-            entry_date = datetime.datetime.strptime(date, "%Y-%m-%d")
-        except ValueError:
-            return {"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}
-    
-    # Analyze emotions in the image
-    emotion_results = image_processor.analyze_emotions(image_file)
-    
-    # Create visualization if emotions were detected
-    visualization_path = None
-    if emotion_results.get("average_emotions"):
-        vis_filename = f"emotions_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-        visualization_path = os.path.join(VISUALIZATIONS_DIR, vis_filename)
-        image_processor.create_emotion_visualization(
-            emotion_results["average_emotions"], 
-            visualization_path
-        )
-    
-    # Analyze image content if available
-    content_analysis = image_processor.analyze_image_content(image_file)
-    
-    # Create entry content
-    entry_content = {
-        "text": notes,
-        "type": "image",
-        "image_file": image_file,
-        "emotions": emotion_results,
-        "content_analysis": content_analysis,
-        "visualization": visualization_path,
-        "created_at": datetime.datetime.now().isoformat()
-    }
-    
-    # Save the entry
-    entry_id = journal_manager.add_entry(entry_date, entry_content)
-    
-    return {
-        "success": True,
-        "entry_id": entry_id,
-        "date": entry_date.strftime("%Y-%m-%d"),
-        "emotions": emotion_results,
-        "visualization": visualization_path
-    }
-
-def get_entries_by_date(date: str) -> List[Dict[str, Any]]:
-    """
-    Get journal entries for a specific date
-    
-    Args:
-        date: Date string (format: YYYY-MM-DD)
-        
-    Returns:
-        List of entry dictionaries
-    """
-    try:
-        entry_date = datetime.datetime.strptime(date, "%Y-%m-%d")
-        entries = journal_manager.get_entries_by_date(entry_date)
-        return entries
-    except ValueError:
-        return []
+            from src.journal_manager import JournalManager
+            journal_manager = JournalManager("journals")
+            print("Using journal manager")
+            has_journal_manager = True
+        except ImportError:
+            print("Journal manager not available, using direct file operations")
+            has_journal_manager = False
     except Exception as e:
-        print(f"Error retrieving entries: {e}")
-        return []
-
-def get_weekly_summary(start_date: str = None) -> Dict[str, Any]:
-    """
-    Get a summary of the week's journal entries
+        print(f"Error setting up simplified components: {e}")
+        has_analyzer = False
+        has_journal_manager = False
     
-    Args:
-        start_date: Optional starting date (format: YYYY-MM-DD)
-        
-    Returns:
-        Summary dictionary
-    """
-    # Determine start and end dates for the week
-    if start_date:
-        try:
-            start = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-        except ValueError:
-            start = datetime.datetime.now() - datetime.timedelta(days=6)
-    else:
-        # Default to the past 7 days
-        start = datetime.datetime.now() - datetime.timedelta(days=6)
-    
-    end = start + datetime.timedelta(days=6)
-    
-    # Get entries for the week
-    entries = journal_manager.get_entries_in_range(start, end)
-    
-    if not entries:
-        return {
-            "success": True,
-            "start_date": start.strftime("%Y-%m-%d"),
-            "end_date": end.strftime("%Y-%m-%d"),
-            "summary": "No entries found for this week."
-        }
-    
-    # Generate weekly summary
-    try:
-        summary = analyzer.create_weekly_summary(entries)
-        return {
-            "success": True,
-            "start_date": start.strftime("%Y-%m-%d"),
-            "end_date": end.strftime("%Y-%m-%d"),
-            "entries_count": len(entries),
-            "summary": summary
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Error generating summary: {e}",
-            "start_date": start.strftime("%Y-%m-%d"),
-            "end_date": end.strftime("%Y-%m-%d"),
-            "entries_count": len(entries)
-        }
-
-# Create the Gradio interface
-def create_interface():
     with gr.Blocks(title="BujoNow - Bullet Journal Companion") as app:
         gr.Markdown("# BujoNow - Bullet Journal Companion")
-        gr.Markdown("A smart journaling tool with AI-powered analysis, mood tracking, and organization")
+        gr.Markdown("## Simplified Version (Integration Error)")
         
-        with gr.Tabs():
-            # Text Journaling Tab
-            with gr.Tab("Text Journal"):
-                with gr.Row():
-                    with gr.Column():
-                        text_date = gr.Textbox(label="Date (YYYY-MM-DD)", value=datetime.datetime.now().strftime("%Y-%m-%d"))
-                        text_input = gr.Textbox(label="Journal Entry", lines=10, placeholder="Write your thoughts here...")
-                        text_submit = gr.Button("Save Entry")
+        error_message = "The application encountered errors during initialization."
+        if not has_interface:
+            error_message = "Failed to import essential modules. Please check the logs for details."
+            
+        gr.Markdown(f"""
+        ### There was an error loading the full application
+        
+        {error_message}
+        
+        #### Troubleshooting Steps:
+        
+        1. Make sure you've set the `GOOGLE_API_KEY` environment variable if you need advanced features.
+        2. Check the following dependencies are installed correctly:
+           - google-generativeai
+           - facenet-pytorch (optional for face detection)
+           - fer (optional for emotion detection)
+        3. Check the application logs for specific error messages.
+        """)
+        
+        # Ensure journals directory exists
+        journals_dir = "journals"
+        os.makedirs(journals_dir, exist_ok=True)
+        
+        # Basic journal functionality
+        with gr.Accordion("Basic Text Journaling", open=True):
+            with gr.Row():
+                with gr.Column():
+                    text_date = gr.Textbox(label="Date (YYYY-MM-DD)", value=datetime.datetime.now().strftime("%Y-%m-%d"))
+                    text_input = gr.Textbox(label="Journal Entry", lines=10, placeholder="Write your thoughts here...")
+                    text_submit = gr.Button("Save Entry")
+                
+                with gr.Column():
+                    text_output = gr.JSON(label="Results")
+            
+            def basic_journal(text, date):
+                if not text:
+                    return {"success": False, "error": "Journal text cannot be empty"}
+                
+                try:
+                    # If we have the journal manager available, use it
+                    if has_journal_manager and has_analyzer:
+                        # Use imported components
+                        try:
+                            analyzer = Analyzer()
+                            analysis = analyzer.analyze_journal_entry(text)
+                            
+                            # Convert string date to datetime
+                            try:
+                                entry_date = datetime.datetime.strptime(date, "%Y-%m-%d")
+                            except ValueError:
+                                return {"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}
+                            
+                            # Create entry
+                            entry = journal_manager.create_entry(
+                                text=text,
+                                emotion_analysis=analysis,
+                                date=entry_date
+                            )
+                            
+                            return {
+                                "success": True,
+                                "message": "Entry saved with analysis",
+                                "date": date,
+                                "entry_id": entry.get("date", date)
+                            }
+                            
+                        except Exception as e:
+                            print(f"Error using components: {e}")
+                            # Fall back to direct file operations
                     
-                    with gr.Column():
-                        text_output = gr.JSON(label="Analysis Results")
-                
-                text_submit.click(
-                    fn=save_text_journal,
-                    inputs=[text_input, text_date],
-                    outputs=text_output
-                )
-            
-            # Voice Journaling Tab
-            with gr.Tab("Voice Journal"):
-                with gr.Row():
-                    with gr.Column():
-                        audio_date = gr.Textbox(label="Date (YYYY-MM-DD)", value=datetime.datetime.now().strftime("%Y-%m-%d"))
-                        audio_input = gr.Audio(label="Record or Upload Audio", type="filepath")
-                        audio_submit = gr.Button("Save Voice Entry")
+                    # Direct file operations fallback
+                    # Create a minimal entry
+                    entry = {
+                        "date": date,
+                        "text": text,
+                        "created_at": datetime.datetime.now().isoformat()
+                    }
                     
-                    with gr.Column():
-                        transcription = gr.Textbox(label="Transcription", lines=5)
-                        audio_output = gr.JSON(label="Analysis Results")
-                
-                audio_submit.click(
-                    fn=save_audio_journal,
-                    inputs=[audio_input, audio_date],
-                    outputs=audio_output
-                )
-            
-            # Photo Journaling Tab
-            with gr.Tab("Photo Journal"):
-                with gr.Row():
-                    with gr.Column():
-                        image_date = gr.Textbox(label="Date (YYYY-MM-DD)", value=datetime.datetime.now().strftime("%Y-%m-%d"))
-                        image_input = gr.Image(label="Upload Image", type="filepath")
-                        image_notes = gr.Textbox(label="Notes", lines=3, placeholder="Add notes about this image...")
-                        image_submit = gr.Button("Save Photo Entry")
+                    # Save to a file
+                    date_obj = datetime.datetime.strptime(date, "%Y-%m-%d")
+                    year_month_dir = os.path.join(journals_dir, date_obj.strftime("%Y-%m"))
+                    os.makedirs(year_month_dir, exist_ok=True)
                     
-                    with gr.Column():
-                        image_emotion = gr.JSON(label="Emotion Analysis")
-                        image_visualization = gr.Image(label="Emotion Visualization")
-                
-                def process_image_output(result):
-                    if result.get("success", False) and result.get("visualization"):
-                        return result, result["visualization"]
-                    return result, None
-                
-                image_submit.click(
-                    fn=lambda img, notes, date: process_image_output(save_image_journal(img, notes, date)),
-                    inputs=[image_input, image_notes, image_date],
-                    outputs=[image_emotion, image_visualization]
-                )
+                    # Generate a unique ID
+                    entry_id = f"{date}_{datetime.datetime.now().strftime('%H%M%S')}"
+                    file_path = os.path.join(year_month_dir, f"{entry_id}.json")
+                    
+                    with open(file_path, 'w') as f:
+                        json.dump(entry, f, indent=2)
+                        
+                    return {
+                        "success": True,
+                        "message": "Entry saved successfully in simplified mode",
+                        "date": date,
+                        "entry_id": entry_id,
+                        "text": text[:100] + "..." if len(text) > 100 else text
+                    }
+                except Exception as e:
+                    return {"success": False, "error": f"Error saving entry: {str(e)}"}
             
-            # Journal Review Tab
-            with gr.Tab("Review"):
-                with gr.Row():
-                    review_date = gr.Textbox(label="Date (YYYY-MM-DD)", value=datetime.datetime.now().strftime("%Y-%m-%d"))
-                    review_button = gr.Button("Get Entries")
-                
-                entries_display = gr.JSON(label="Journal Entries")
-                
-                review_button.click(
-                    fn=get_entries_by_date,
-                    inputs=review_date,
-                    outputs=entries_display
-                )
-            
-            # Weekly Summary Tab
-            with gr.Tab("Weekly Summary"):
-                with gr.Row():
-                    summary_date = gr.Textbox(label="Start Date (YYYY-MM-DD)", value=datetime.datetime.now().strftime("%Y-%m-%d"))
-                    summary_button = gr.Button("Generate Summary")
-                
-                summary_display = gr.JSON(label="Weekly Summary")
-                
-                summary_button.click(
-                    fn=get_weekly_summary,
-                    inputs=summary_date,
-                    outputs=summary_display
-                )
+            text_submit.click(
+                fn=basic_journal,
+                inputs=[text_input, text_date],
+                outputs=text_output
+            )
+        
+        with gr.Accordion("System Information", open=False):
+            system_info = f"""
+            Python version: {sys.version}
+            Platform: {sys.platform}
+            Import errors occurred: {not has_interface}
+            Journal manager available: {has_journal_manager if 'has_journal_manager' in locals() else False}
+            Analyzer available: {has_analyzer if 'has_analyzer' in locals() else False}
+            """
+            gr.Markdown(system_info)
     
     return app
 
 # Launch the app
 if __name__ == "__main__":
-    app = create_interface()
-    app.launch() 
+    print("Initializing BujoNow application...")
+    try:
+        if has_interface:
+            try:
+                print("Creating main interface...")
+                app = create_interface()
+                print("Main interface created successfully")
+            except Exception as e:
+                print(f"Error creating main interface: {e}")
+                traceback.print_exc(file=sys.stdout)
+                app = create_simple_interface()
+        else:
+            app = create_simple_interface()
+        
+        print("Launching application...")
+        app.launch(share=False, server_name="0.0.0.0", server_port=7860)
+    except Exception as e:
+        print(f"Critical error launching application: {e}")
+        traceback.print_exc(file=sys.stdout)
+        
+        # Command-line fallback if GUI fails completely
+        print("\n=== COMMAND LINE INTERFACE ===")
+        print("BujoNow is running in command-line mode due to GUI initialization failure.")
+        
+        # Try to get essential components for CLI
+        try:
+            from src.journal_manager import JournalManager
+            from src.analyzer_simplified import Analyzer
+            journal_manager = JournalManager("journals")
+            analyzer = Analyzer()
+            
+            while True:
+                print("\nOptions:")
+                print("1. Add journal entry")
+                print("2. View entry by date")
+                print("3. Exit")
+                
+                choice = input("\nEnter your choice (1-3): ")
+                
+                if choice == '1':
+                    date_str = input("Enter date (YYYY-MM-DD) or press Enter for today: ")
+                    if not date_str:
+                        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+                    
+                    text = input("Enter your journal entry (type 'done' on a new line to finish):\n")
+                    lines = []
+                    line = text
+                    while line != "done":
+                        lines.append(line)
+                        line = input()
+                    
+                    text = "\n".join(lines)
+                    
+                    # Process entry
+                    try:
+                        entry_date = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+                        analysis = analyzer.analyze_journal_entry(text)
+                        entry = journal_manager.create_entry(
+                            text=text,
+                            emotion_analysis=analysis,
+                            date=entry_date
+                        )
+                        print("\nEntry saved successfully!")
+                    except Exception as e:
+                        print(f"\nError saving entry: {e}")
+                    
+                elif choice == '2':
+                    date_str = input("Enter date (YYYY-MM-DD): ")
+                    try:
+                        entry_date = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+                        entry = journal_manager.get_entry(entry_date)
+                        if entry:
+                            print("\nEntry found:")
+                            print(f"Date: {entry.get('date')}")
+                            print(f"Text: {entry.get('content', {}).get('text', 'No text')}")
+                            print(f"Emotion: {entry.get('emotion_analysis', {}).get('primary_emotion', 'Unknown')}")
+                        else:
+                            print("No entry found for that date.")
+                    except Exception as e:
+                        print(f"\nError retrieving entry: {e}")
+                        
+                elif choice == '3':
+                    print("Exiting BujoNow. Goodbye!")
+                    break
+                
+                else:
+                    print("Invalid choice. Please try again.")
+        except Exception as e:
+            print(f"Cannot initialize command-line interface: {e}")
+            print("BujoNow cannot run. Please check your installation.") 

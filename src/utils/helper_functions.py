@@ -17,13 +17,35 @@ import matplotlib.pyplot as plt
 from pydub import AudioSegment
 import speech_recognition as sr
 from PIL import Image
-from facenet_pytorch import MTCNN
-from fer import FER
+
+# Try to import face detection and emotion analysis libraries
+# Provide fallbacks if they're not available
+try:
+    from facenet_pytorch import MTCNN
+    MTCNN_AVAILABLE = True
+except ImportError:
+    print("Warning: facenet-pytorch not available. Face detection will be limited.")
+    MTCNN_AVAILABLE = False
+
+try:
+    from fer import FER
+    FER_AVAILABLE = True
+except ImportError:
+    print("Warning: FER not available. Emotion detection will be limited.")
+    FER_AVAILABLE = False
+
 import typing_extensions as typing
 
-# Initialize face detection model
-mtcnn = MTCNN()
-emotion_detector = FER()
+# Initialize face detection model if available
+if MTCNN_AVAILABLE:
+    mtcnn = MTCNN()
+else:
+    mtcnn = None
+
+if FER_AVAILABLE:
+    emotion_detector = FER()
+else:
+    emotion_detector = None
 
 # RAG documents for emotional support contexts
 RAG_DOCUMENTS = [
@@ -146,6 +168,22 @@ def detect_emotion_from_image(image_path: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary with detected emotion and confidence.
     """
+    # Check if required libraries are available
+    if not MTCNN_AVAILABLE or not FER_AVAILABLE:
+        return {
+            "emotion": "unknown", 
+            "confidence": 0, 
+            "message": "Face detection libraries not available",
+            "all_emotions": {
+                "neutral": 0.5,
+                "happy": 0.2,
+                "sad": 0.1,
+                "angry": 0.1,
+                "surprised": 0.05,
+                "fearful": 0.05
+            }
+        }
+        
     try:
         image = Image.open(image_path)
         # Use MTCNN to detect faces
