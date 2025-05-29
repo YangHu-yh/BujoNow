@@ -10,9 +10,17 @@ from typing import Dict, List, Optional
 from pathlib import Path
 
 class JournalManager:
-    def __init__(self, journal_dir: str = "journals"):
+    def __init__(self, journal_dir: str = "journals", user_id: Optional[str] = None):
         """Initialize the journal manager"""
-        self.journal_dir = journal_dir
+        self.base_journal_dir = journal_dir
+        self.user_id = user_id
+        
+        # If user_id is provided, use a user-specific directory
+        if user_id:
+            self.journal_dir = os.path.join("users", user_id, journal_dir)
+        else:
+            self.journal_dir = journal_dir
+            
         self._ensure_journal_dir()
 
     def _ensure_journal_dir(self):

@@ -1,87 +1,124 @@
-# Deploying to Hugging Face Spaces
+# Deploying BujoNow on Hugging Face Spaces
 
-This guide provides instructions for deploying the BujoNow application to Hugging Face Spaces.
+This document provides instructions for deploying BujoNow on Hugging Face Spaces with user authentication enabled.
 
 ## Prerequisites
 
-- A Hugging Face account (sign up at https://huggingface.co/join)
-- A Google AI API key for Gemini (get one at https://ai.google.dev/)
+1. A Hugging Face account
+2. Basic understanding of Git
+3. (Optional) A Google Gemini API key for enhanced AI features
 
-## Basic Deployment
+## Step 1: Fork or Clone the Repository
 
-1. Go to https://huggingface.co/spaces
-2. Click on the "Create new Space" button
-3. Enter a name for your Space (e.g., "bujonow")
-4. Select "Gradio" as the SDK
-5. Choose a license (if desired)
-6. Click "Create Space"
+First, clone the BujoNow repository to your local machine or fork it on GitHub.
 
-## Setting Up Your Code
-
-You can upload your code in several ways:
-
-### Option 1: Using the Hugging Face Web Interface
-
-1. On your Space page, click on "Files" tab
-2. Use the "Add file" button to upload your files
-3. Make sure to include all necessary files (all Python code and requirements.txt)
-
-### Option 2: Using Git
-
-1. Clone your Space repository
-2. Add your application files
-3. Commit and push the changes
-
-## Setting Up API Key
-
-The application requires a Google Gemini API key to function with full AI capabilities.
-
-### Important: Model Compatibility
-
-BujoNow now uses the `gemini-2.0-flash` model by default, which is available in the free tier of Google AI Studio. The application includes fallback logic to try other models if the default one isn't available.
-
-### Setting the API Key as a Secret
-
-1. Navigate to your Space's "Settings" tab
-2. Find the "Repository Secrets" section
-3. Click on "New Secret"
-4. Set the name as `GOOGLE_API_KEY`
-5. Enter your Gemini API key as the value
-6. Click "Add new secret"
-
-This sets up the API key securely, without exposing it in your code.
-
-## HuggingFace README.md Setup
-
+```bash
+git clone https://github.com/yourname/BujoNow.git
+cd BujoNow
 ```
+
+## Step 2: Configure OAuth in README.md
+
+The main README.md file already includes the OAuth configuration in its metadata section:
+
+```yaml
 ---
 title: BujoNow
-emoji: ⚡
+emoji: 📔
 colorFrom: green
-colorTo: green
+colorTo: blue
 sdk: gradio
 sdk_version: 5.29.0
 app_file: app.py
 pinned: false
 license: mit
 short_description: A Bullet Journal Companion Powered by Gemini
+hf_oauth: true
+hf_oauth_expiration_minutes: 1440
+hf_oauth_scopes:
+  - openid
+  - profile
 ---
-
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
 ```
 
-## Dependencies
+This configuration:
+- Enables OAuth authentication (`hf_oauth: true`)
+- Sets token expiration to 24 hours (1440 minutes)
+- Requests the openid and profile scopes, which are required for basic user info
 
-Make sure your `requirements.txt` file includes these dependencies:
+## Step 3: Create a New Space on Hugging Face
 
+1. Go to [Hugging Face Spaces](https://huggingface.co/spaces)
+2. Click "Create new Space"
+3. Select "Gradio" as the SDK
+4. Give your Space a name (e.g., "bujonow")
+5. Choose a license (e.g., MIT)
+6. Select "Public" or "Private" visibility
+7. Click "Create Space"
+
+## Step 4: Push Your Code to the Space
+
+Add the Hugging Face Space as a remote and push your code:
+
+```bash
+git remote add space https://huggingface.co/spaces/yourname/bujonow
+git push space main
 ```
-gradio>=5.0.0
-google-generativeai>=0.4.0
-numpy>=1.24.0
-scikit-learn>=1.2.0
-Pillow>=9.0.0
-typing-extensions>=4.0.0
-```
+
+Or upload the files directly using the Hugging Face web interface.
+
+## Step 5: Add API Key Secret (Optional)
+
+If you want to use the full AI features with Google Gemini:
+
+1. Get a Google Gemini API key from [Google AI Studio](https://ai.google.dev/)
+2. Go to your Space settings
+3. Find the "Repository secrets" section
+4. Add a new secret with name `GOOGLE_API_KEY` and your API key as the value
+
+## Step 6: Wait for the Build
+
+The Space will automatically build and deploy your app. This may take a few minutes.
+
+Once deployed, Hugging Face will automatically provide OAuth credentials for your Space based on the configuration in the README.md metadata.
+
+## Step 7: Test the Authentication
+
+1. Open your Space
+2. Click "Sign in with Hugging Face"
+3. Authorize the application
+4. You should be redirected back to your app and logged in
+5. Create a journal entry to test that everything is working
+
+## Troubleshooting
+
+If you encounter any issues with authentication:
+
+1. Check the Space logs for error messages
+2. Verify that the OAuth configuration in README.md is correct
+3. Make sure your Space is properly built and running
+4. Try clearing your browser cookies and cache
+
+## How the Authentication Works
+
+When your Space is deployed:
+
+1. Hugging Face reads the OAuth configuration from your README.md
+2. It creates OAuth credentials for your Space
+3. It sets environment variables in your Space with the credentials:
+   - `OAUTH_CLIENT_ID`
+   - `OAUTH_CLIENT_SECRET`
+   - `OAUTH_SCOPES`
+   - `OPENID_PROVIDER_URL`
+4. Your app uses these credentials to implement the OAuth flow
+
+The user flow:
+
+1. User clicks "Sign in with Hugging Face"
+2. They're redirected to Hugging Face to authorize your app
+3. After authorization, they're redirected back to your app
+4. Your app verifies the authorization and creates a user session
+5. The user can now access their personal journal data
 
 ## Important Notes
 

@@ -16,7 +16,22 @@ from pathlib import Path
 # Configure environment before imports
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Suppress TensorFlow warnings
 
+# Set default OpenID provider URL if not set
+if not os.environ.get("OPENID_PROVIDER_URL"):
+    os.environ["OPENID_PROVIDER_URL"] = "https://huggingface.co"
+    print("Set default OPENID_PROVIDER_URL to https://huggingface.co")
+
 print("Starting BujoNow application...")
+
+# Check for OAuth configuration
+oauth_client_id = os.environ.get("OAUTH_CLIENT_ID")
+if oauth_client_id:
+    print("Found OAUTH_CLIENT_ID in environment variables")
+    has_oauth = True
+else:
+    print("Warning: OAUTH_CLIENT_ID not found in environment variables")
+    print("Authentication functionality will not be available")
+    has_oauth = False
 
 # Check for Google API key
 google_api_key = os.environ.get("GOOGLE_API_KEY")
@@ -28,7 +43,7 @@ else:
     print("Set it using: export GOOGLE_API_KEY=your_api_key")
 
 # Create required directories
-for directory in ["journals", "uploads", "visualizations"]:
+for directory in ["journals", "uploads", "visualizations", "users"]:
     os.makedirs(directory, exist_ok=True)
     print(f"Ensured {directory} directory exists")
 
@@ -38,10 +53,21 @@ try:
     from src.interface import create_interface
     has_interface = True
     print("Interface module imported successfully")
+    
+    # Import auth interface
+    try:
+        from src.auth_interface import create_auth_interface
+        has_auth_interface = True
+        print("Authentication interface imported successfully")
+    except Exception as e:
+        print(f"Warning: Authentication interface not available: {e}")
+        traceback.print_exc(file=sys.stdout)
+        has_auth_interface = False
 except Exception as e:
     print(f"Error importing interface: {e}")
     traceback.print_exc(file=sys.stdout)
     has_interface = False
+    has_auth_interface = False
 
 # Create a simplified interface if the main one is not available
 def create_simple_interface():

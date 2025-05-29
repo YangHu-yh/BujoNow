@@ -58,6 +58,7 @@ class AppManager:
         self.journals_dir = JOURNALS_DIR
         self.uploads_dir = UPLOADS_DIR
         self.visualizations_dir = VISUALIZATIONS_DIR
+        self.current_user_id = None
         
         # Create required directories
         if initialize_dirs:
@@ -65,6 +66,33 @@ class AppManager:
         
         # Initialize components
         self.journal_manager = JournalManager(self.journals_dir)
+        
+    def set_user_id(self, user_id: str) -> None:
+        """
+        Set the current user ID for user-specific journal storage
+        
+        Args:
+            user_id: The user ID to set
+        """
+        self.current_user_id = user_id
+        
+        # Update the journal manager with the user-specific directory
+        self.journal_manager = JournalManager(self.journals_dir, user_id)
+        
+        # Create user-specific upload and visualization directories if needed
+        if user_id:
+            self.user_uploads_dir = os.path.join("users", user_id, "uploads")
+            self.user_visualizations_dir = os.path.join("users", user_id, "visualizations")
+            os.makedirs(self.user_uploads_dir, exist_ok=True)
+            os.makedirs(self.user_visualizations_dir, exist_ok=True)
+            
+            # Update the current directories for user-specific operations
+            self.current_uploads_dir = self.user_uploads_dir
+            self.current_visualizations_dir = self.user_visualizations_dir
+        else:
+            # Fallback to default directories when no user is set
+            self.current_uploads_dir = self.uploads_dir
+            self.current_visualizations_dir = self.visualizations_dir
         
         # Initialize analyzer in priority order
         print("Initializing analyzer component...")

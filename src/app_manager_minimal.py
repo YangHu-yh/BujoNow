@@ -23,6 +23,8 @@ class MinimalAppManager:
         """
         from src.journal_manager import JournalManager
         
+        self.journals_dir = "journals"
+        self.current_user_id = None
         self.journal_manager = journal_manager or JournalManager()
         
         # Use provided analyzer or try to import a suitable one
@@ -58,6 +60,24 @@ class MinimalAppManager:
                 self.analyzer = UltraMinimalAnalyzer()
         
         print("Created minimal app manager")
+    
+    def set_user_id(self, user_id: str) -> None:
+        """
+        Set the current user ID for user-specific journal storage
+        
+        Args:
+            user_id: The user ID to set
+        """
+        self.current_user_id = user_id
+        
+        # Update the journal manager with the user-specific directory
+        from src.journal_manager import JournalManager
+        self.journal_manager = JournalManager(self.journals_dir, user_id)
+        
+        # Create user-specific uploads directory if needed
+        if user_id:
+            self.user_uploads_dir = os.path.join("users", user_id, "uploads")
+            os.makedirs(self.user_uploads_dir, exist_ok=True)
                 
     def save_text_journal(self, text, date=None):
         """Save a text journal entry"""

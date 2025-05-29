@@ -1,70 +1,82 @@
 ---
 title: BujoNow
-emoji: ⚡
+emoji: 📔
 colorFrom: green
-colorTo: green
+colorTo: blue
 sdk: gradio
 sdk_version: 5.29.0
 app_file: app.py
 pinned: false
 license: mit
 short_description: A Bullet Journal Companion Powered by Gemini
+hf_oauth: true
+hf_oauth_expiration_minutes: 1440
 ---
 
-# BujoNow - Bullet Journal Companion
+# BujoNow - AI-Enhanced Bullet Journal
 
-BujoNow is a digital bullet journal application with AI-powered features for journal analysis, emotion tracking, and personal growth insights.
+BujoNow is an AI-powered digital bullet journal companion that helps you track your thoughts, emotions, and personal growth.
 
 ## Features
 
-- Text-based journaling with emotion analysis
-- Weekly summaries and insights
-- Graceful degradation when optional dependencies are unavailable
-- Multiple fallback mechanisms to ensure the app works in various environments
+- **Secure Authentication**: Sign in with your Hugging Face account to access your private journal
+- **Text Journaling**: Record your thoughts and experiences
+- **AI Analysis**: Get insights about your emotions and patterns (requires API key)
+- **Weekly Summaries**: Review your emotional trends and progress
+- **User Privacy**: All journal entries are private to your account
 
-## Running the Application
+## Getting Started
 
-To run the application with full features:
+1. Sign in with your Hugging Face account
+2. Write a journal entry in the "Journal Entry" tab
+3. Save the entry to store it in your personal journal
+4. View your entries in the "View Entries" tab
+5. Generate a weekly summary to see your progress
+6. Chat with your journal in the "Chat with Journal" tab
 
-```bash
-python app.py
+## Authentication
+
+BujoNow uses Hugging Face OAuth for authentication. This ensures:
+- Each user has access only to their own journal entries
+- Your data is securely stored in your personal user space
+- Simple login with your existing Hugging Face account
+
+## Setup
+
+### For Users
+Simply click "Sign in with Hugging Face" to authorize the app and get started.
+
+### For Developers
+To set up authentication in your own fork:
+1. Add the required OAuth configuration to the README.md metadata
+2. Deploy to Hugging Face Spaces
+3. The Spaces platform will automatically provision OAuth credentials
+
+#### API Key (Optional)
+For enhanced AI features, add a Google Gemini API key as a Space secret:
+- Get a key from [Google AI Studio](https://ai.google.dev/)
+- Add it as a secret with name `GOOGLE_API_KEY`
+
+## Troubleshooting
+
+### Authentication Issues
+If you encounter authentication problems:
+1. Check the application logs for specific error messages
+2. Ensure your Hugging Face Space has the correct OAuth configuration in README.md
+3. Try clearing your browser cookies and cache
+4. For local development, set the required environment variables:
+   ```
+   export OAUTH_CLIENT_ID="your_client_id"
+   export OAUTH_CLIENT_SECRET="your_client_secret" 
+   export OPENID_PROVIDER_URL="https://huggingface.co"
+   ```
+
+### Gradio Version Compatibility
+This application requires Gradio 4.x or later. If you see errors related to missing Gradio functions:
+```
+pip install gradio --upgrade
 ```
 
-The app will automatically detect available dependencies and use appropriate fallbacks if some are missing.
-
-## Dependencies
-
-- Required:
-  - gradio
-  - python 3.7+
-  
-- Optional (for enhanced features):
-  - google-generativeai (for AI analysis)
-  - facenet-pytorch (for face detection)
-  - fer (for emotion recognition)
-
-## Project Structure
-
-- `app.py`: Main entry point with fallback mechanisms
-- `src/`: Core application code
-  - `journal_manager.py`: Handles journal entry creation and storage
-  - `analyzer.py`: Provides AI-powered analysis (requires google-generativeai)
-  - `analyzer_simplified.py`: Simplified analysis without API dependencies
-  - `interface.py`: Creates the Gradio web interface
-  - `processor/`: Image and audio processing utilities
-
-## Fallback Mechanisms
-
-BujoNow implements several fallback mechanisms:
-
-1. If the full analyzer with Google AI isn't available, it uses a simplified analyzer
-2. If the web interface fails, it provides a command-line interface
-3. If components fail to import, it gracefully degrades functionality
-
-This ensures that users can still journal even if some dependencies are missing or API access is unavailable.
-
-## License
-
-MIT License
+For more detailed troubleshooting, check the [test/README.md](test/README.md) file.
 
 Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
